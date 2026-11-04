@@ -314,6 +314,7 @@ def render_recognition() -> None:
         st.write(st.session_state.recognition_summary)
     else:
         st.info("真实 AI 模式 · 上传的图片会发送到 DeepSeek 进行识别；食刻不会将图片写入磁盘或长期保存。请勿上传包含个人隐私的图片。")
+        st.caption("💡 温馨提示：尽量使用本地相机拍摄食物照片后再上传，清晰、完整的原图有助于减少误判。")
         image_source = st.radio("图片来源", ["上传图片", "打开摄像头"], horizontal=True, key="recognition_image_source")
         if image_source == "上传图片":
             upload = st.file_uploader(
