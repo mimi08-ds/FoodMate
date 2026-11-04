@@ -9,6 +9,10 @@ from .catalog import find_food, normalize_text
 from .nutrition import combine_recipe_items, nutrition_for_items
 
 
+# Pantry seasonings should not make an otherwise unrelated recipe look relevant.
+NON_MATCHING_RECIPE_FOODS = {"cooking_oil", "soy_sauce", "garlic", "ginger"}
+
+
 def split_terms(value: str | list[str] | tuple[str, ...] | None) -> list[str]:
     if value is None:
         return []
@@ -143,8 +147,10 @@ def recommend_recipes(
     limit: int = 3,
 ) -> list[dict[str, Any]]:
     selected = {str(item.get("food_id") or (find_food(item.get("name", "")) or {}).get("id", "")) for item in confirmed_items}
-    selected.discard("")
-    ranked: list[tuple[int, dict[str, Any]]] = []
+    selected -= {"", *NON_MATCHING_RECIPE_FOODS}
+    if not selected:
+        return []
+    ranked: list[tuple[int, float, dict[str, Any]]] = []
     for recipe in recipe_catalog:
         minutes = int(recipe.get("cooking_minutes", 0))
         if max_cooking_minutes is not None and minutes > max_cooking_minutes:
@@ -153,11 +159,13 @@ def recommend_recipes(
             continue
         if cookware != "不限" and cookware not in recipe.get("cookware", []):
             continue
-        recipe_ids = _recipe_food_ids(recipe)
+        recipe_ids = _recipe_food_ids(recipe) - NON_MATCHING_RECIPE_FOODS
         overlap = len(selected.intersection(recipe_ids))
         if overlap == 0:
             continue
-        score = overlap * 3 + _soft_preference_score((recipe,), preference)
-        ranked.append((score, recipe))
-    ranked.sort(key=lambda pair: (-pair[0], pair[1]["id"]))
-    return [recipe for _, recipe in ranked[:limit]]
+        coverage = overlap / len(selected)
+        score = overlap * 100 + _soft_preference_score((recipe,), preference)
+        ranked.append((score, coverage, recipe))
+    ranked.sort(key=lambda pair: (-pair[0], -pair[1], pair[2]["id"]))
+    return [recipe for _, _, recipe in ranked[:limit]]
+
