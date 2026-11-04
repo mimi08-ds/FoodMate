@@ -161,11 +161,12 @@ FOOD_RECOGNITION_SCHEMA: dict[str, Any] = {
                 "properties": {
                     "name_zh": {"type": "string"},
                     "name_en": {"type": "string"},
+                    "food_id": {"type": "string"},
                     "grams": {"type": "number"},
                     "confidence": {"type": "number"},
                     "notes": {"type": "string"},
                 },
-                "required": ["name_zh", "name_en", "grams", "confidence", "notes"],
+                "required": ["name_zh", "name_en", "food_id", "grams", "confidence", "notes"],
                 "additionalProperties": False,
             },
         },
