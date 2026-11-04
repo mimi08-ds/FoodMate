@@ -319,8 +319,8 @@ def render_recognition() -> None:
         if image_source == "上传图片":
             upload = st.file_uploader(
                 "上传一张餐食照片",
-                type=["jpg", "jpeg", "png", "webp", "heic", "heif"],
-                help="支持 JPG、PNG、WebP 和手机常见的 HEIC；单张上限 100 MB，上传后会自动压缩。",
+                type=["jpg", "jpeg", "png", "webp", "heic", "heif", "avif"],
+                help="支持 JPG、PNG、WebP、AVIF 和手机常见的 HEIC；单张上限 100 MB，上传后会自动压缩。",
                 key="food_image_upload",
                 max_upload_size=100,
             )
