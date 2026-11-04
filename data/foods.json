@@ -1,0 +1,26 @@
+{
+  "data_note": "本项目自制演示数据，数值为近似值；仅用于展示计算流程，不是完整或专业营养数据库。每 100 克可食部。",
+  "foods": [
+    {"id":"cooked_rice","name":"熟米饭","name_en":"Cooked white rice","aliases":["米饭","白米饭","rice"],"allergens":[],"per_100g":{"kcal":116,"protein_g":2.6,"fat_g":0.3,"carbs_g":25.9}},
+    {"id":"chicken_breast","name":"鸡胸肉","name_en":"Chicken breast","aliases":["鸡肉","鸡胸","chicken"],"allergens":[],"per_100g":{"kcal":165,"protein_g":31.0,"fat_g":3.6,"carbs_g":0}},
+    {"id":"pork_tenderloin","name":"猪里脊","name_en":"Pork tenderloin","aliases":["猪肉","里脊肉","pork"],"allergens":[],"per_100g":{"kcal":143,"protein_g":20.3,"fat_g":6.2,"carbs_g":0}},
+    {"id":"beef","name":"牛肉","name_en":"Beef","aliases":["牛腩","牛肉片","beef"],"allergens":[],"per_100g":{"kcal":180,"protein_g":20.0,"fat_g":10.0,"carbs_g":0}},
+    {"id":"egg","name":"鸡蛋","name_en":"Egg","aliases":["蛋","鸡蛋液","eggs"],"allergens":["蛋类"],"per_100g":{"kcal":144,"protein_g":13.3,"fat_g":8.8,"carbs_g":2.8}},
+    {"id":"firm_tofu","name":"北豆腐","name_en":"Firm tofu","aliases":["豆腐","老豆腐","tofu"],"allergens":["大豆"],"per_100g":{"kcal":84,"protein_g":8.1,"fat_g":4.2,"carbs_g":2.1}},
+    {"id":"tomato","name":"番茄","name_en":"Tomato","aliases":["西红柿","tomatoes"],"allergens":[],"per_100g":{"kcal":18,"protein_g":0.9,"fat_g":0.2,"carbs_g":3.9}},
+    {"id":"broccoli","name":"西兰花","name_en":"Broccoli","aliases":["绿花菜","broccoli florets"],"allergens":[],"per_100g":{"kcal":34,"protein_g":2.8,"fat_g":0.4,"carbs_g":6.6}},
+    {"id":"potato","name":"土豆","name_en":"Potato","aliases":["马铃薯","potatoes"],"allergens":[],"per_100g":{"kcal":77,"protein_g":2.0,"fat_g":0.1,"carbs_g":17.0}},
+    {"id":"carrot","name":"胡萝卜","name_en":"Carrot","aliases":["红萝卜","carrots"],"allergens":[],"per_100g":{"kcal":41,"protein_g":0.9,"fat_g":0.2,"carbs_g":9.6}},
+    {"id":"onion","name":"洋葱","name_en":"Onion","aliases":["洋葱丝","onions"],"allergens":[],"per_100g":{"kcal":40,"protein_g":1.1,"fat_g":0.1,"carbs_g":9.3}},
+    {"id":"green_pepper","name":"青椒","name_en":"Green bell pepper","aliases":["甜椒","青红椒","bell pepper"],"allergens":[],"per_100g":{"kcal":20,"protein_g":0.9,"fat_g":0.2,"carbs_g":4.6}},
+    {"id":"shiitake","name":"香菇","name_en":"Shiitake mushroom","aliases":["鲜香菇","shiitake mushrooms"],"allergens":[],"per_100g":{"kcal":34,"protein_g":2.2,"fat_g":0.5,"carbs_g":6.8}},
+    {"id":"shrimp","name":"虾仁","name_en":"Shrimp","aliases":["虾","shrimp"],"allergens":["甲壳类"],"per_100g":{"kcal":99,"protein_g":24.0,"fat_g":0.3,"carbs_g":0.2}},
+    {"id":"sea_bass","name":"鲈鱼","name_en":"Sea bass","aliases":["鱼肉","鱼片","fish"],"allergens":["鱼类"],"per_100g":{"kcal":124,"protein_g":23.0,"fat_g":2.6,"carbs_g":0}},
+    {"id":"green_peas","name":"豌豆","name_en":"Green peas","aliases":["青豆","peas"],"allergens":[],"per_100g":{"kcal":81,"protein_g":5.4,"fat_g":0.4,"carbs_g":14.5}},
+    {"id":"cucumber","name":"黄瓜","name_en":"Cucumber","aliases":["青瓜","cucumber"],"allergens":[],"per_100g":{"kcal":15,"protein_g":0.7,"fat_g":0.1,"carbs_g":3.6}},
+    {"id":"garlic","name":"大蒜","name_en":"Garlic","aliases":["蒜","蒜末","garlic"],"allergens":[],"per_100g":{"kcal":149,"protein_g":6.4,"fat_g":0.5,"carbs_g":33.1}},
+    {"id":"cooking_oil","name":"食用油","name_en":"Cooking oil","aliases":["油","植物油","油脂","oil"],"allergens":[],"per_100g":{"kcal":884,"protein_g":0,"fat_g":100,"carbs_g":0}},
+    {"id":"soy_sauce","name":"酱油","name_en":"Soy sauce","aliases":["生抽","老抽","soy sauce"],"allergens":["大豆","小麦"],"per_100g":{"kcal":53,"protein_g":8.1,"fat_g":0.6,"carbs_g":4.9}},
+    {"id":"ginger","name":"生姜","name_en":"Ginger","aliases":["姜","姜片","ginger"],"allergens":[],"per_100g":{"kcal":80,"protein_g":1.8,"fat_g":0.8,"carbs_g":17.8}}
+  ]
+}

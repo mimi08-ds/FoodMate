@@ -1,0 +1,63 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 760 470" role="img" aria-labelledby="title desc">
+  <title id="title">食刻演示餐食插画</title>
+  <desc id="desc">一碗米饭搭配鸡肉、西兰花和番茄的原创矢量示意图</desc>
+  <defs>
+    <linearGradient id="bg" x1="0" x2="1" y1="0" y2="1">
+      <stop offset="0" stop-color="#e5f1e7"/><stop offset="1" stop-color="#f8f1df"/>
+    </linearGradient>
+    <linearGradient id="bowl" x1="0" x2="0" y1="0" y2="1">
+      <stop offset="0" stop-color="#ffffff"/><stop offset="1" stop-color="#e4ece6"/>
+    </linearGradient>
+    <filter id="shadow" x="-20%" y="-20%" width="140%" height="150%">
+      <feDropShadow dx="0" dy="13" stdDeviation="14" flood-color="#29513b" flood-opacity=".16"/>
+    </filter>
+  </defs>
+  <rect width="760" height="470" rx="28" fill="url(#bg)"/>
+  <circle cx="110" cy="78" r="37" fill="#ffffff" opacity=".55"/>
+  <circle cx="663" cy="365" r="55" fill="#ffffff" opacity=".38"/>
+  <path d="M0 335 Q190 300 380 336 T760 330 V470 H0Z" fill="#e0ebdf" opacity=".8"/>
+  <g filter="url(#shadow)">
+    <ellipse cx="380" cy="270" rx="237" ry="141" fill="#d5e2d8"/>
+    <ellipse cx="380" cy="253" rx="232" ry="133" fill="url(#bowl)" stroke="#d1ddd4" stroke-width="7"/>
+    <ellipse cx="380" cy="244" rx="195" ry="101" fill="#f7f5e8"/>
+    <!-- rice -->
+    <g fill="#fffdf3" stroke="#e9e3cc" stroke-width="3">
+      <ellipse cx="310" cy="222" rx="51" ry="35"/><ellipse cx="354" cy="203" rx="56" ry="39"/>
+      <ellipse cx="397" cy="221" rx="53" ry="36"/><ellipse cx="342" cy="244" rx="54" ry="35"/>
+      <ellipse cx="393" cy="250" rx="49" ry="32"/>
+    </g>
+    <g fill="#ffffff" opacity=".8">
+      <ellipse cx="333" cy="191" rx="10" ry="4"/><ellipse cx="375" cy="208" rx="11" ry="4"/>
+      <ellipse cx="306" cy="220" rx="9" ry="4"/><ellipse cx="367" cy="242" rx="10" ry="4"/>
+    </g>
+    <!-- chicken pieces -->
+    <g fill="#d99b57" stroke="#bf7d3a" stroke-width="4">
+      <path d="M455 183 Q477 158 501 176 L520 194 Q525 210 507 218 L474 214 Q449 207 455 183Z"/>
+      <path d="M431 229 Q450 209 474 223 L490 243 Q489 261 469 265 L442 257 Q425 247 431 229Z"/>
+      <path d="M481 252 Q495 233 516 245 L531 263 Q529 278 510 281 L488 275 Q473 266 481 252Z"/>
+    </g>
+    <g fill="#f3c27e" opacity=".8">
+      <path d="M466 183 Q479 173 491 181" fill="none" stroke="#f3c27e" stroke-width="5" stroke-linecap="round"/>
+      <path d="M443 232 Q454 223 465 230" fill="none" stroke="#f3c27e" stroke-width="5" stroke-linecap="round"/>
+    </g>
+    <!-- broccoli -->
+    <g fill="#4d965c" stroke="#317444" stroke-width="4">
+      <path d="M535 214 Q548 189 573 202 Q587 176 610 193 Q635 189 640 214 Q657 239 635 252 L550 254 Q526 243 535 214Z"/>
+      <path d="M555 244 L564 276 L585 276 L591 246" fill="#b8c879" stroke="#8d9e58"/>
+      <path d="M587 239 L595 270 L616 270 L620 236" fill="#b8c879" stroke="#8d9e58"/>
+    </g>
+    <g fill="#75b878"><circle cx="556" cy="208" r="13"/><circle cx="584" cy="194" r="15"/><circle cx="612" cy="207" r="14"/></g>
+    <!-- tomato -->
+    <g transform="translate(244 265)">
+      <path d="M0 11 Q13 -4 31 2 Q48 -3 59 12 Q69 29 56 42 Q43 53 19 49 Q-2 44 -3 27Z" fill="#e36f54" stroke="#c95342" stroke-width="4"/>
+      <path d="M26 6 L31 -3 L35 7 L46 4 L38 13 L26 12 L18 18 L21 8Z" fill="#4e8d50"/>
+    </g>
+    <g transform="translate(270 190) rotate(-12)">
+      <path d="M0 11 Q13 -4 31 2 Q48 -3 59 12 Q69 29 56 42 Q43 53 19 49 Q-2 44 -3 27Z" fill="#eb8058" stroke="#c95342" stroke-width="4"/>
+      <path d="M26 6 L31 -3 L35 7 L46 4 L38 13 L26 12 L18 18 L21 8Z" fill="#4e8d50"/>
+    </g>
+  </g>
+  <g fill="#355e45" font-family="sans-serif" text-anchor="middle">
+    <text x="380" y="420" font-size="22" font-weight="700">一餐好好吃，也好好算</text>
+  </g>
+</svg>
