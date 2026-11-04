@@ -5,7 +5,6 @@ import uuid
 from pathlib import Path
 from typing import Any
 
-import pandas as pd
 import streamlit as st
 
 from foodmate.catalog import find_food, food_by_id, foods, recipes
@@ -109,10 +108,10 @@ def nutrition_text(result: dict[str, Any]) -> str:
 def show_nutrition(result: dict[str, Any], label: str = "营养估算") -> None:
     st.markdown(f"**{label}**")
     values = result["totals"]
-    cols = st.columns(4)
+    cols = st.columns(2)
     metrics = [("热量", f"{values['kcal']:.0f}", "kcal"), ("蛋白质", f"{values['protein_g']:.1f}", "g"), ("脂肪", f"{values['fat_g']:.1f}", "g"), ("碳水", f"{values['carbs_g']:.1f}", "g")]
-    for column, (name, value, unit) in zip(cols, metrics):
-        column.metric(name, value, unit)
+    for index, (name, value, unit) in enumerate(metrics):
+        cols[index % 2].metric(name, value, unit)
     if result["missing"]:
         st.warning("以下食材没有匹配到营养数据，当前数值只是已知食材小计：" + "、".join(result["missing"]))
     else:
@@ -136,30 +135,69 @@ def show_item_nutrition(items: list[dict[str, Any]]) -> None:
         )
     if detail_rows:
         with st.expander("查看逐食材营养明细"):
-            st.dataframe(pd.DataFrame(detail_rows), hide_index=True, width="stretch")
+            for row in detail_rows:
+                with st.container(border=True):
+                    st.markdown(f"**{row['食材']}** · {row['重量（克）']:g} g")
+                    if row["热量（kcal）"] == "缺数据":
+                        st.caption("营养数据缺失；未估算该食材的数值。")
+                    else:
+                        st.caption(
+                            f"{row['热量（kcal）']:.0f} kcal · 蛋白质 {row['蛋白质（克）']:.1f} g · "
+                            f"脂肪 {row['脂肪（克）']:.1f} g · 碳水 {row['碳水（克）']:.1f} g"
+                        )
             st.caption("数据为本项目自制的近似演示值；未知食材不会被估成虚假的精确数字。")
 
 
 def render_ingredient_editor() -> None:
-    rows = [{"食材": item["name"], "重量（克）": item["grams"]} for item in st.session_state.ingredients]
-    table = pd.DataFrame(rows, columns=["食材", "重量（克）"])
-    editor_key = f"ingredient_editor_{st.session_state.editor_version}"
+    def current_rows() -> list[dict[str, Any]]:
+        rows = []
+        for item in st.session_state.ingredients:
+            row_id = item["row_id"]
+            if st.session_state.get(f"ingredient_remove_{row_id}", False):
+                continue
+            rows.append(
+                {
+                    "row_id": row_id,
+                    "name": st.session_state.get(f"ingredient_name_{row_id}", item["name"]),
+                    "grams": st.session_state.get(f"ingredient_grams_{row_id}", item["grams"]),
+                }
+            )
+        return rows
+
     with st.form("ingredient_form", clear_on_submit=False):
-        edited = st.data_editor(
-            table,
-            key=editor_key,
-            num_rows="dynamic",
-            hide_index=True,
-            width="stretch",
-            column_config={
-                "食材": st.column_config.TextColumn("食材名称", help="可修改、添加或删除食材"),
-                "重量（克）": st.column_config.NumberColumn("重量（克）", min_value=0.0, max_value=3000.0, step=5.0, format="%.1f g"),
-            },
-        )
-        submitted = st.form_submit_button("保存食材并重新计算", type="primary")
-    if submitted:
-        set_ingredients(edited.to_dict(orient="records"))
+        for item in st.session_state.ingredients:
+            row_id = item["row_id"]
+            with st.container(border=True):
+                name_col, grams_col = st.columns([2, 1])
+                name_col.text_input(
+                    "食材名称",
+                    value=item["name"],
+                    key=f"ingredient_name_{row_id}",
+                    placeholder="例如：番茄",
+                )
+                grams_col.number_input(
+                    "重量（克）",
+                    min_value=0.0,
+                    max_value=3000.0,
+                    step=5.0,
+                    value=float(item["grams"]),
+                    key=f"ingredient_grams_{row_id}",
+                )
+                st.checkbox("删除这项食材", key=f"ingredient_remove_{row_id}")
+        saved = st.form_submit_button("保存并重新计算", type="primary", use_container_width=True)
+        add_row = st.form_submit_button("＋ 添加一项食材", use_container_width=True)
+
+    if saved:
+        updated = current_rows()
+        set_ingredients(updated)
         st.success("已保存；营养数据已重新计算。")
+    elif add_row:
+        updated = current_rows()
+        set_ingredients(updated)
+        st.session_state.ingredients.append(
+            {"row_id": uuid.uuid4().hex[:10], "food_id": "", "name": "", "grams": 100.0}
+        )
+        st.rerun()
 
 
 def render_demo_illustration() -> None:
@@ -306,9 +344,9 @@ def render_recognition() -> None:
 
     if st.session_state.recognition_uncertain:
         st.warning("模型标记为不确定：" + "、".join(st.session_state.recognition_uncertain))
+    st.markdown("#### 核对食材和份量")
+    render_ingredient_editor()
     if st.session_state.ingredients:
-        st.markdown("#### 核对食材和份量")
-        render_ingredient_editor()
         result = nutrition_for_items(st.session_state.ingredients)
         show_nutrition(result)
         show_item_nutrition(st.session_state.ingredients)
@@ -463,26 +501,44 @@ def main() -> None:
         <style>
         .stApp { background: #f7faf7; }
         [data-testid="stHeader"] { background: rgba(247,250,247,.86); }
-        .hero { padding: 1.35rem 1.5rem; border-radius: 20px; background: linear-gradient(115deg,#e7f3e9,#f4f8ec); border: 1px solid #d9e9da; margin-bottom: 1rem; }
-        .hero h1 { color: #173f2b; margin: 0; font-size: 2.25rem; }
+        .hero { padding: 1.35rem 1.5rem; border-radius: 20px; background: linear-gradient(115deg,#e7f3e9,#f4f8ec); border: 1px solid #d9e9da; margin-bottom: .75rem; }
+        .hero h1 { color: #173f2b; margin: 0; font-size: clamp(1.65rem, 5vw, 2.25rem); }
         .hero p { color: #496b54; margin: .35rem 0 0; }
         .demo-image { max-width: 440px; margin: .8rem auto; }
         .demo-image img { width: 100%; height: auto; border-radius: 18px; border: 1px solid #dce8dd; }
+        @media (max-width: 760px) {
+            .block-container { padding-left: 1rem !important; padding-right: 1rem !important; padding-top: 1rem !important; }
+            .hero { padding: 1rem; border-radius: 16px; }
+            .demo-image { max-width: 100%; }
+            [data-testid="stHorizontalBlock"] { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: .65rem !important; }
+            [data-testid="stHorizontalBlock"] > [data-testid="column"] { width: auto !important; min-width: 0 !important; flex: none !important; }
+            [data-testid="stTabs"] [role="tablist"] { display: grid !important; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: .25rem; }
+            [data-testid="stTabs"] button[role="tab"] { min-height: 2.8rem; padding: .45rem .25rem; white-space: normal; font-size: .88rem; line-height: 1.2; }
+            [data-testid="stMetric"] { padding: .7rem .55rem; }
+            [data-testid="stMetricValue"] { font-size: 1.55rem; }
+            [data-testid="stForm"] button { min-height: 2.9rem; }
+            input, textarea, [role="combobox"] { font-size: 16px !important; }
+        }
+        @media (max-width: 390px) {
+            .block-container { padding-left: .75rem !important; padding-right: .75rem !important; }
+            [data-testid="stHorizontalBlock"] { grid-template-columns: minmax(0, 1fr); }
+            [data-testid="stTabs"] [role="tablist"] { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+            [data-testid="stTabs"] button[role="tab"] { font-size: .8rem; }
+        }
         </style>
         <div class="hero"><h1>食刻 · FoodMate</h1><p>让每一餐，都有科学依据。</p></div>
         """,
         unsafe_allow_html=True,
     )
-    with st.sidebar:
-        st.markdown("### 使用模式")
-        st.radio("选择运行模式", ["演示模式", "真实 AI 模式"], key="run_mode", label_visibility="collapsed")
-        if st.session_state.run_mode == "演示模式":
-            st.success("演示模式已开启 · 结果明确标注为预设样例")
-        elif get_setting("DEEPSEEK_API_KEY"):
-            st.success("已检测到 API 密钥；密钥不会显示在页面中。")
-        else:
-            st.warning("未检测到 DEEPSEEK_API_KEY。请在部署 Secrets 或本地环境变量中配置；不会自动使用样例结果。")
-        st.markdown("---")
+    mode_col, mode_status = st.columns([1, 2])
+    mode_col.selectbox("使用模式", ["演示模式", "真实 AI 模式"], key="run_mode")
+    if st.session_state.run_mode == "演示模式":
+        mode_status.success("演示模式 · 结果为预设样例")
+    elif get_setting("DEEPSEEK_API_KEY"):
+        mode_status.success("真实 AI 模式 · 已检测到密钥")
+    else:
+        mode_status.warning("未检测到 API 密钥；可继续手动填写食材。")
+    with st.expander("隐私与使用说明"):
         st.caption("图片仅在当前识别流程中处理，不写入项目文件。真实 AI 模式会将图片发送给 DeepSeek；请勿上传敏感图片。")
         st.caption(DISCLAIMER)
 
@@ -499,3 +555,4 @@ def main() -> None:
 
 if __name__ == "__main__":
     main()
+
