@@ -17,7 +17,7 @@ from foodmate.model_client import (
     call_json,
 )
 from foodmate.nutrition import nutrition_for_items, nutrition_for_recipe
-from foodmate.planning import build_meal_plans, recommend_recipes
+from foodmate.planning import NON_MATCHING_RECIPE_FOODS, build_meal_plans, recommend_recipes
 
 
 ROOT = Path(__file__).resolve().parent
@@ -62,6 +62,7 @@ def init_state() -> None:
         "recognition_uncertain": [],
         "recipe_results": [],
         "recipe_offset": 0,
+        "recipe_filter_signature": None,
         "planner_results": [],
         "planner_notice": "",
         "recipe_notice": "",
@@ -231,14 +232,19 @@ def recipe_schema_prompt(confirmed: list[dict[str, Any]], purpose: str) -> str:
     return (
         f"你是一般家常菜助手。{purpose}\n"
         f"用户已确认食材：{item_lines or '未提供'}。\n"
-        "只可使用下面清单里的 food_id，不得添加清单外食材；不得生成营养或热量数字。"
+        "只可使用下面清单里的 food_id，不得添加清单外食材；每道菜必须包含至少一种用户已确认的非调味食材。"
+        "食用油、酱油、大蒜、生姜不算匹配食材；可以补充清单内其他食材，页面会标出尚需准备的食材。不得生成营养或热量数字。"
         "给出最多 4 道中式家常菜，每道含具体食材克数、步骤、预计分钟数和难度。"
         "避免疾病治疗或极端节食建议。\n" + known
     )
 
 
-def sanitize_ai_recipes(payload: dict[str, Any]) -> list[dict[str, Any]]:
+def sanitize_ai_recipes(payload: dict[str, Any], confirmed: list[dict[str, Any]]) -> list[dict[str, Any]]:
     known_ids = {food["id"] for food in foods()}
+    confirmed_ids = {
+        str(item.get("food_id") or (find_food(item.get("name", "")) or {}).get("id", ""))
+        for item in confirmed
+    } - NON_MATCHING_RECIPE_FOODS - {""}
     safe: list[dict[str, Any]] = []
     for index, raw in enumerate(payload.get("recipes", [])):
         ingredients: list[dict[str, Any]] = []
@@ -260,7 +266,15 @@ def sanitize_ai_recipes(payload: dict[str, Any]) -> list[dict[str, Any]]:
         except (TypeError, ValueError):
             minutes = 0
         name = str(raw.get("name", "")).strip()
-        if not valid or not name or not ingredients or not steps or not 1 <= minutes <= 180:
+        recipe_core_ids = {item["food_id"] for item in ingredients} - NON_MATCHING_RECIPE_FOODS
+        if (
+            not valid
+            or not name
+            or not ingredients
+            or not steps
+            or not 1 <= minutes <= 180
+            or not confirmed_ids.intersection(recipe_core_ids)
+        ):
             continue
         safe.append(
             {
@@ -289,7 +303,7 @@ def request_generated_recipes(purpose: str, confirmed: list[dict[str, Any]]) -> 
         model=model,
         base_url=base_url,
     )
-    return sanitize_ai_recipes(payload)
+    return sanitize_ai_recipes(payload, confirmed)
 
 
 def render_recognition() -> None:
@@ -372,17 +386,33 @@ def render_recognition() -> None:
 
 def render_recipe_card(recipe: dict[str, Any], index: int) -> None:
     nutrition = nutrition_for_recipe(recipe)
+    confirmed_amounts: dict[str, float] = {}
+    for item in st.session_state.ingredients:
+        food = find_food(item.get("name", "")) or food_by_id(str(item.get("food_id", "")))
+        if food:
+            confirmed_amounts[food["id"]] = confirmed_amounts.get(food["id"], 0.0) + float(item.get("grams", 0))
+    matched: list[str] = []
+    to_prepare: list[str] = []
+    for item in recipe.get("ingredients", []):
+        food = food_by_id(item.get("food_id", ""))
+        if not food:
+            continue
+        needed = float(item.get("grams", 0))
+        available = confirmed_amounts.get(food["id"], 0.0)
+        if available >= needed:
+            matched.append(f"{food['name']}（{needed:g}g）")
+        elif available > 0:
+            matched.append(f"{food['name']}（已有 {available:g}g，还需 {needed - available:g}g）")
+            to_prepare.append(f"{food['name']} {needed - available:g}g")
+        else:
+            to_prepare.append(f"{food['name']} {needed:g}g")
     with st.container(border=True):
         title_col, meta_col = st.columns([3, 1])
         title_col.markdown(f"### {index}. {recipe['name']}")
         meta_col.caption(f"⏱ {recipe.get('cooking_minutes', '—')} 分钟 · {recipe.get('difficulty', '普通')}")
         st.caption(recipe.get("description", ""))
-        ingredients = []
-        for item in recipe.get("ingredients", []):
-            food = food_by_id(item.get("food_id", ""))
-            if food:
-                ingredients.append(f"{food['name']} {item['grams']:g}g")
-        st.markdown("**食材：** " + "、".join(ingredients))
+        st.markdown("**已确认并匹配：** " + ("、".join(matched) if matched else "无"))
+        st.markdown("**还需准备：** " + ("、".join(to_prepare) if to_prepare else "无"))
         st.markdown("**做法：** " + " → ".join(recipe.get("steps", [])))
         st.caption(nutrition_text(nutrition) + (" · 部分数据缺失" if not nutrition["complete"] else ""))
         st.caption(recipe.get("source", "本项目示例数据"))
@@ -390,7 +420,7 @@ def render_recipe_card(recipe: dict[str, Any], index: int) -> None:
 
 def render_recipes() -> None:
     st.subheader("② 智能菜谱推荐")
-    st.write("推荐依据是你在识别页确认的食材。示例菜谱为项目自制数据；AI 生成内容会标注来源，营养由程序重新计算。")
+    st.write("优先匹配识别页确认的非调味食材；油、酱油、蒜、姜不会单独触发无关菜谱。推荐卡会分别列出已确认食材和还需准备的食材。")
     if not st.session_state.ingredients:
         st.info("请先在识别页添加或确认食材。")
         return
@@ -403,8 +433,22 @@ def render_recipes() -> None:
     minutes = {"不限": None, "15 分钟内": 15, "30 分钟内": 30, "45 分钟内": 45}[max_time]
     local = recommend_recipes(recipes(), st.session_state.ingredients, preference=preference, max_cooking_minutes=minutes, difficulty=difficulty, cookware=cookware, limit=10)
 
-    if st.session_state.run_mode == "演示模式" and not st.session_state.recipe_results:
-        st.session_state.recipe_results = local[:3] or list(recipes()[:3])
+    ingredient_signature = tuple(
+        sorted(
+            (
+                str(item.get("food_id") or (find_food(item.get("name", "")) or {}).get("id", "")),
+                round(float(item.get("grams", 0)), 1),
+            )
+            for item in st.session_state.ingredients
+        )
+    )
+    filter_signature = (ingredient_signature, preference, minutes, difficulty, cookware, st.session_state.run_mode)
+    if st.session_state.recipe_filter_signature != filter_signature:
+        st.session_state.recipe_filter_signature = filter_signature
+        st.session_state.recipe_results = []
+        st.session_state.recipe_offset = 0
+        st.session_state.recipe_notice = ""
+
     if st.button("为我推荐 / 换一批", type="primary", key="recommend_recipes"):
         st.session_state.recipe_notice = ""
         results: list[dict[str, Any]] = []
@@ -412,7 +456,13 @@ def render_recipes() -> None:
             offset = st.session_state.recipe_offset % len(local)
             results = [local[(offset + index) % len(local)] for index in range(min(3, len(local)))]
             st.session_state.recipe_offset = (offset + len(results)) % len(local)
-        if len(results) < 3 and st.session_state.run_mode == "真实 AI 模式":
+        confirmed_core_ids = {
+            str(item.get("food_id") or (find_food(item.get("name", "")) or {}).get("id", ""))
+            for item in st.session_state.ingredients
+        } - NON_MATCHING_RECIPE_FOODS - {""}
+        if not local and not confirmed_core_ids:
+            st.session_state.recipe_notice = "当前确认的食材只有油、酱油、蒜、姜等调味料，无法据此推荐主菜；请在识别页确认至少一种主食材。"
+        elif len(results) < 3 and st.session_state.run_mode == "真实 AI 模式":
             try:
                 with st.spinner("正在生成候选菜谱，并检查可计算的食材…"):
                     ai = request_generated_recipes("请优先使用用户现有食材。", st.session_state.ingredients)
@@ -426,7 +476,10 @@ def render_recipes() -> None:
         st.warning(st.session_state.recipe_notice)
     results = st.session_state.recipe_results or local[:3]
     if not results:
-        st.info("本地示例菜谱中没有匹配项。真实 AI 模式可尝试生成候选，或调整已确认食材和筛选条件。")
+        if st.session_state.run_mode == "演示模式":
+            st.info("当前演示菜谱中没有符合已确认主食材和筛选条件的菜谱；不会显示无关菜谱。请调整筛选条件或确认其他食材。")
+        else:
+            st.info("当前还没有匹配的菜谱。点击上方按钮尝试生成候选，或调整筛选条件、确认其他食材。")
         return
     st.caption(f"当前展示 {len(results)} 道菜谱；热量和营养均由本地数据重算。")
     for index, recipe in enumerate(results, start=1):
