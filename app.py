@@ -8,6 +8,7 @@ from typing import Any
 import streamlit as st
 
 from foodmate.catalog import find_food, food_by_id, foods, recipes
+from foodmate.image_processing import ImageInputError, prepare_food_image
 from foodmate.model_client import (
     DEFAULT_MODEL,
     FOOD_RECOGNITION_SCHEMA,
@@ -301,46 +302,60 @@ def render_recognition() -> None:
         st.info("真实 AI 模式 · 上传的图片会发送到 DeepSeek 进行识别；食刻不会将图片写入磁盘或长期保存。请勿上传包含个人隐私的图片。")
         image_source = st.radio("图片来源", ["上传图片", "打开摄像头"], horizontal=True, key="recognition_image_source")
         if image_source == "上传图片":
-            upload = st.file_uploader("上传一张餐食照片", type=["jpg", "jpeg", "png", "webp"], help="建议小于 8 MB；可包含多种食物。", key="food_image_upload")
+            upload = st.file_uploader(
+                "上传一张餐食照片",
+                type=["jpg", "jpeg", "png", "webp", "heic", "heif"],
+                help="支持 JPG、PNG、WebP 和手机常见的 HEIC；建议小于 8 MB。",
+                key="food_image_upload",
+            )
+            if upload is None:
+                st.caption("如果文件卡片出现红色感叹号，代表浏览器尚未完成上传；请重新选择图片，并保持网络连接。")
         else:
             upload = st.camera_input("拍摄一张餐食照片", key="food_camera_capture")
         if upload:
-            image_bytes = upload.getvalue()
-            st.image(image_bytes, caption="本次识别图片", width="stretch")
-            if len(image_bytes) > 8 * 1024 * 1024:
+            original_bytes = upload.getvalue()
+            if len(original_bytes) > 8 * 1024 * 1024:
                 st.error("图片超过 8 MB，请压缩后重试。")
-            elif st.button("识别食材", type="primary", key="recognize_button"):
+            else:
                 try:
-                    result = call_json(
-                        recognition_schema_prompt(),
-                        schema_name="foodmate_food_recognition",
-                        schema=FOOD_RECOGNITION_SCHEMA,
-                        api_key=get_setting("DEEPSEEK_API_KEY"),
-                        model=get_setting("DEEPSEEK_MODEL", DEFAULT_MODEL),
-                        base_url=get_setting("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
-                        image=(image_bytes, getattr(upload, "type", None) or "image/jpeg"),
-                    )
-                    rows = []
-                    for raw in result.get("foods", []):
-                        name = str(raw.get("name_zh") or raw.get("name_en") or "").strip()
+                    image_bytes = prepare_food_image(original_bytes)
+                except ImageInputError as exc:
+                    st.error(str(exc))
+                else:
+                    st.image(image_bytes, caption="已校正方向并优化的本次识别图片", width="stretch")
+                    if st.button("识别食材", type="primary", key="recognize_button", use_container_width=True):
                         try:
-                            grams = float(raw.get("grams", 0))
-                            confidence = min(1.0, max(0.0, float(raw.get("confidence", 0))))
-                        except (TypeError, ValueError):
-                            continue
-                        if name and 1 <= grams <= 3000:
-                            food = find_food(name) or find_food(str(raw.get("name_en", "")))
-                            rows.append({"name": food["name"] if food else name, "food_id": food["id"] if food else "", "grams": grams, "confidence": confidence})
-                    if not rows:
-                        st.error("模型没有识别出可编辑的食材。请换一张照片或手动添加食材。")
-                    else:
-                        set_ingredients(rows, str(result.get("summary", "识别完成，请检查食材与份量。")))
-                        st.session_state.recognition_uncertain = result.get("uncertain_items", [])
-                        st.success("识别完成。请核对或修改食材和份量。")
-                except ModelError as exc:
-                    st.error(f"识别失败：{exc} 你可以重试或在下方手动填写，不会自动切换成样例结果。")
-                except Exception:
-                    st.error("识别过程中出现意外错误。请稍后重试，或手动填写食材。")
+                            with st.spinner("正在识别图片，请保持页面开启；网络繁忙时会自动重试一次…"):
+                                result = call_json(
+                                    recognition_schema_prompt(),
+                                    schema_name="foodmate_food_recognition",
+                                    schema=FOOD_RECOGNITION_SCHEMA,
+                                    api_key=get_setting("DEEPSEEK_API_KEY"),
+                                    model=get_setting("DEEPSEEK_MODEL", DEFAULT_MODEL),
+                                    base_url=get_setting("DEEPSEEK_BASE_URL", "https://api.deepseek.com"),
+                                    image=(image_bytes, "image/jpeg"),
+                                )
+                            rows = []
+                            for raw in result.get("foods", []):
+                                name = str(raw.get("name_zh") or raw.get("name_en") or "").strip()
+                                try:
+                                    grams = float(raw.get("grams", 0))
+                                    confidence = min(1.0, max(0.0, float(raw.get("confidence", 0))))
+                                except (TypeError, ValueError):
+                                    continue
+                                if name and 1 <= grams <= 3000:
+                                    food = find_food(name) or find_food(str(raw.get("name_en", "")))
+                                    rows.append({"name": food["name"] if food else name, "food_id": food["id"] if food else "", "grams": grams, "confidence": confidence})
+                            if not rows:
+                                st.warning("模型没有返回可确认的食材。请上传光线清楚、食物完整可见的照片，或手动添加食材。")
+                            else:
+                                set_ingredients(rows, str(result.get("summary", "识别完成，请检查食材与份量。")))
+                                st.session_state.recognition_uncertain = result.get("uncertain_items", [])
+                                st.success("识别完成。请核对或修改食材和份量。")
+                        except ModelError as exc:
+                            st.error(f"识别失败：{exc} 你可以重试或手动填写；不会自动伪装成识别成功。")
+                        except Exception as exc:
+                            st.error(f"图片识别流程异常（{type(exc).__name__}）。请重试，或手动填写食材。")
 
     if st.session_state.recognition_uncertain:
         st.warning("模型标记为不确定：" + "、".join(st.session_state.recognition_uncertain))
