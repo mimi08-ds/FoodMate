@@ -25,7 +25,10 @@ def prepare_food_image(image_bytes: bytes, *, max_edge: int = 1920) -> bytes:
         with warnings.catch_warnings():
             warnings.simplefilter("error", Image.DecompressionBombWarning)
             with Image.open(BytesIO(image_bytes)) as source:
-                source.load()
+                # Ask JPEG decoders to downsample during decode where supported,
+                # then resize before making additional RGB/RGBA copies.
+                source.draft("RGB", (max_edge, max_edge))
+                source.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
                 oriented = ImageOps.exif_transpose(source)
                 if "A" in oriented.getbands():
                     foreground = oriented.convert("RGBA")
@@ -34,13 +37,14 @@ def prepare_food_image(image_bytes: bytes, *, max_edge: int = 1920) -> bytes:
                     image = background.convert("RGB")
                 else:
                     image = oriented.convert("RGB")
-                image.thumbnail((max_edge, max_edge), Image.Resampling.LANCZOS)
 
                 output = BytesIO()
                 image.save(output, format="JPEG", quality=88, optimize=True, progressive=True)
                 return output.getvalue()
     except Image.DecompressionBombError:
         raise ImageInputError("这张图片分辨率过高，无法安全处理；请截取或压缩后重试。") from None
-    except (Image.DecompressionBombWarning, UnidentifiedImageError, OSError, ValueError):
-        raise ImageInputError("无法读取这张图片。请重新导出为 JPG、PNG、WebP 或 HEIC 后重试。") from None
+    except Image.DecompressionBombWarning:
+        raise ImageInputError("这张图片分辨率过高，无法安全处理；请截取或压缩后重试。") from None
+    except (UnidentifiedImageError, OSError, ValueError):
+        raise ImageInputError("无法读取这张图片。请重新导出为 JPG、PNG、WebP、AVIF 或 HEIC 后重试。") from None
 
