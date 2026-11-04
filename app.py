@@ -319,23 +319,25 @@ def render_recognition() -> None:
             upload = st.file_uploader(
                 "上传一张餐食照片",
                 type=["jpg", "jpeg", "png", "webp", "heic", "heif"],
-                help="支持 JPG、PNG、WebP 和手机常见的 HEIC；建议小于 8 MB。",
+                help="支持 JPG、PNG、WebP 和手机常见的 HEIC；单张上限 100 MB，上传后会自动压缩。",
                 key="food_image_upload",
+                max_upload_size=100,
             )
             if upload is None:
-                st.caption("如果文件卡片出现红色感叹号，代表浏览器尚未完成上传；请重新选择图片，并保持网络连接。")
+                st.caption("如果文件卡片出现红色感叹号，代表浏览器尚未完成上传；请确认图片不超过 100 MB，再重新选择并保持网络连接。")
         else:
             upload = st.camera_input("拍摄一张餐食照片", key="food_camera_capture")
         if upload:
             original_bytes = upload.getvalue()
-            if len(original_bytes) > 8 * 1024 * 1024:
-                st.error("图片超过 8 MB，请压缩后重试。")
+            if len(original_bytes) > 100 * 1024 * 1024:
+                st.error("图片超过 100 MB，请压缩后重试。")
             else:
                 try:
                     image_bytes = prepare_food_image(original_bytes)
                 except ImageInputError as exc:
                     st.error(str(exc))
                 else:
+                    st.caption(f"图片已优化：{len(original_bytes) / 1024 / 1024:.1f} MB → {len(image_bytes) / 1024 / 1024:.1f} MB JPEG。")
                     st.image(image_bytes, caption="已校正方向并优化的本次识别图片", width="stretch")
                     if st.button("识别食材", type="primary", key="recognize_button", use_container_width=True):
                         try:
