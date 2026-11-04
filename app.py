@@ -220,9 +220,12 @@ def render_demo_illustration() -> None:
 def recognition_schema_prompt() -> str:
     catalog = ", ".join(f"{food['id']}: {food['name']} ({food['name_en']})" for food in foods())
     return (
-        "请识别这张单餐食物照片。用中文列出可见食物和可能的主要食材，并估计每项可食部克数。"
-        "不要把热量或营养值写入结果；后续由程序计算。看不准时仍可列出候选，但把置信度调低并说明不确定。"
-        "份量只是照片估算，不能声称精确测量。若食物匹配下面目录，请原样返回对应 food_id；目录外食物的 food_id 填空字符串，不要猜造 ID。目录：" + catalog
+        "请仔细观察图片中所有清晰可见的菜肴、食物和主要食材。一张照片可能包含多盘菜、复合菜或餐桌场景；"
+        "尽量分别列出可辨认的菜名和主要食材，不要因为无法确定烹饪方式或无法匹配参考目录就返回空数组。"
+        "只报告图像中有依据的内容：看不清的项目放入 uncertain_items，不要猜测；清晰可辨认的项目仍应正常返回。"
+        "每项给出简短中文名和照片份量的粗略可食部克数估计，份量不精确时降低 confidence 并在 notes 中说明。"
+        "不要把热量或营养值写入结果；后续由程序计算。若能明确匹配目录，请返回对应 food_id；不能匹配时 food_id 填空字符串，不要猜造 ID。"
+        "目录只用于营养数据匹配，不是允许识别的食物范围。参考目录：" + catalog
     )
 
 
@@ -366,13 +369,24 @@ def render_recognition() -> None:
                                         or find_food(name)
                                         or find_food(str(raw.get("name_en", "")))
                                     )
-                                    rows.append({"name": food["name"] if food else name, "food_id": food["id"] if food else "", "grams": grams, "confidence": confidence})
+                                    rows.append({"name": food["name"] if food else name, "food_id": food["id"] if food else "", "grams": grams, "confidence": confidence, "notes": str(raw.get("notes", "")).strip()})
                             if not rows:
-                                st.warning("模型没有返回可确认的食材。请上传光线清楚、食物完整可见的照片，或手动添加食材。")
+                                st.warning("模型未能从这张照片确认具体食物。请尝试逐盘拍摄、让餐食完整入镜并避免遮挡，或手动添加食材。")
+                                uncertain = result.get("uncertain_items", [])
+                                if uncertain:
+                                    st.caption("模型认为可能存在但无法确认的内容：" + "、".join(map(str, uncertain)))
                             else:
-                                set_ingredients(rows, str(result.get("summary", "识别完成，请检查食材与份量。")))
+                                set_ingredients(rows, str(result.get("summary", "识别候选已载入，请核对食材与份量。")))
                                 st.session_state.recognition_uncertain = result.get("uncertain_items", [])
-                                st.success("识别完成。请核对或修改食材和份量。")
+                                known_count = sum(bool(row["food_id"]) for row in rows)
+                                unknown_count = len(rows) - known_count
+                                if unknown_count:
+                                    st.warning(f"已载入 {len(rows)} 项识别候选，其中 {unknown_count} 项暂无本地营养数据；只对已匹配项目计算营养。请先核对名称和份量。")
+                                else:
+                                    st.success("识别候选已载入。请核对食材和份量；照片估重仅供参考。")
+                                notes = [f"{row['name']}：{row['notes']}" for row in rows if row.get("notes")]
+                                if notes:
+                                    st.caption("识别备注：" + "；".join(notes))
                         except ModelError as exc:
                             st.error(f"识别失败：{exc} 你可以重试或手动填写；不会自动伪装成识别成功。")
                         except Exception as exc:
