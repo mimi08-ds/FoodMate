@@ -218,11 +218,11 @@ def render_demo_illustration() -> None:
 
 
 def recognition_schema_prompt() -> str:
-    catalog = ", ".join(f"{food['name']} ({food['name_en']})" for food in foods())
+    catalog = ", ".join(f"{food['id']}: {food['name']} ({food['name_en']})" for food in foods())
     return (
         "请识别这张单餐食物照片。用中文列出可见食物和可能的主要食材，并估计每项可食部克数。"
         "不要把热量或营养值写入结果；后续由程序计算。看不准时仍可列出候选，但把置信度调低并说明不确定。"
-        "份量只是照片估算，不能声称精确测量。已知食物参考词汇：" + catalog
+        "份量只是照片估算，不能声称精确测量。若食物匹配下面目录，请原样返回对应 food_id；目录外食物的 food_id 填空字符串，不要猜造 ID。目录：" + catalog
     )
 
 
@@ -358,7 +358,11 @@ def render_recognition() -> None:
                                 except (TypeError, ValueError):
                                     continue
                                 if name and 1 <= grams <= 3000:
-                                    food = find_food(name) or find_food(str(raw.get("name_en", "")))
+                                    food = (
+                                        food_by_id(str(raw.get("food_id", "")))
+                                        or find_food(name)
+                                        or find_food(str(raw.get("name_en", "")))
+                                    )
                                     rows.append({"name": food["name"] if food else name, "food_id": food["id"] if food else "", "grams": grams, "confidence": confidence})
                             if not rows:
                                 st.warning("模型没有返回可确认的食材。请上传光线清楚、食物完整可见的照片，或手动添加食材。")
@@ -424,6 +428,14 @@ def render_recipes() -> None:
     if not st.session_state.ingredients:
         st.info("请先在识别页添加或确认食材。")
         return
+
+    unmapped = [
+        str(item.get("name", "")).strip()
+        for item in st.session_state.ingredients
+        if not (item.get("food_id") or find_food(str(item.get("name", ""))))
+    ]
+    if unmapped:
+        st.warning("这些确认食材未匹配到本地目录，暂不参与菜谱匹配和营养计算：" + "、".join(unmapped))
 
     controls = st.columns(4)
     preference = controls[0].selectbox("口味偏好", ["不限", "清淡", "少油", "素食倾向"], key="recipe_preference")
